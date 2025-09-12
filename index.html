@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Prompt You - AI Prompt Engineer</title>
+    <!-- Google Fonts: Space Grotesk for headings, Noto Sans for body text -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Using a simple emoji as favicon for a modern, minimal aesthetic -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+</head>
+<body>
+    <header class="main-header">
+        <div class="logo">
+            <span class="logo-icon">✨</span>
+            <span class="logo-text">I Prompt You</span>
+        </div>
+        <nav class="main-nav">
+            <ul>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About</a></li>
+                <li><a href="#examples">Examples</a></li>
+                <li><a href="#contact-section">Contact</a></li>
+            </ul>
+        </nav>
+        <div class="header-actions">
+            <button id="viewHistoryBtn" class="action-btn header-btn">View History</button>
+            <button id="newPromptRefreshBtn" class="primary-btn header-btn">New Prompt</button>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero-section" id="home">
+            <div class="hero-content">
+                <h1>Generate AI Prompts with Ease</h1>
+                <h2>Input your desired output, and our AI will craft the perfect prompt for other AI models.</h2>
+                <div class="prompt-input-area">
+                    <div class="input-field-group">
+                        <textarea id="userInput" placeholder="Describe your desired output here..."></textarea>
+                        <button id="generatePromptBtn" class="generate-btn primary-btn">Generate Prompt</button>
+                    </div>
+
+                    <div class="additional-input-controls">
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="fileInput" multiple accept="
+                                text/*, .txt,.md,.js,.py,.json,.html,.css,.xml,.csv,.log,.sh,.rb,.go,.java,.cpp,.c,.h,.swift,.kt,.php,.ts,.tsx,.jsx,.scss,.less,.yaml,.ini,.cfg,.toml,.rtf,
+                                image/*,.jpg,.jpeg,.png,.gif,.webp,.svg,
+                                application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+                                application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+                                application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation
+                            " style="display: none;">
+                            <button id="uploadFileBtn" class="action-btn icon-btn">
+                                <span class="icon">📁</span>
+                                <span class="btn-text">Upload Files</span>
+                            </button>
+                            <span id="fileNameDisplay" class="file-name-display">No files chosen</span>
+                        </div>
+                        <button id="voiceInputBtn" class="action-btn icon-btn">
+                            <span class="icon">🎤</span>
+                            <span class="btn-text">Speak Idea</span>
+                        </button>
+                    </div>
+
+                    <div id="filePreview" class="file-preview"></div>
+                    <small class="file-info-text">Supported: Text, Code, Plain Documents (content extracted for text), Images (for multimodal AI). Audio/Video/Complex Docs require manual description or a backend service.</small>
+
+                    <div id="loadingIndicator" class="loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Crafting your prompt...</span>
+                    </div>
+                    <div id="errorMessage" class="error-message" style="display: none;"></div>
+                </div>
+
+                <div class="output-section">
+                    <label for="outputPrompt" class="section-title">Refined Prompt for AI:</label>
+                    <textarea id="outputPrompt" readonly placeholder="Your well-structured prompt will appear here..."></textarea>
+                    <button id="copyPromptBtn" class="action-btn icon-btn" style="display: none;">
+                        <span class="icon">📋</span>
+                        <span class="btn-text">Copy Prompt</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-cards" id="examples">
+            <h2 class="section-heading">Example Prompts</h2>
+            <div class="example-grid">
+                <div class="example-card">
+                    <span class="icon">✨</span>
+                    <p>Write a short story about a talking cat</p>
+                </div>
+                <div class="example-card">
+                    <span class="icon">📝</span>
+                    <p>Summarize this article for a 5th grader</p>
+                </div>
+                <div class="example-card">
+                    <span class="icon">🤖</span>
+                    <p>Generate Python code for a simple web server</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section-text" id="about">
+            <h2 class="section-heading">What is Prompt Engineering?</h2>
+            <p>Prompt engineering is the process of designing and refining inputs (prompts) for AI models to achieve desired outputs. It involves understanding how AI models process information and crafting instructions that leverage their capabilities effectively. A well-engineered prompt can drastically improve the relevance, quality, and accuracy of AI-generated content, moving from generic responses to highly specific, useful, and creative results. It's about speaking the AI's language to unlock its full potential.</p>
+        </section>
+
+        <section id="contact-section" class="section-text" style="padding-bottom: 80px; text-align: center;">
+            <h2 class="section-heading">Contact Us</h2>
+            <p>Have questions or feedback? Reach out to us at <a href="mailto:souparnopaulreborn@gmail.com">souparnopaulreborn@gmail.com</a></p>
+        </section>
+    </main>
+
+    <footer class="main-footer">
+        <nav class="footer-nav">
+            <ul>
+                <li><a href="#">Terms of Service</a></li>
+                <li><a href="#">Privacy Policy</a></li>
+                <li><a href="#">Contact Us</a></li>
+            </ul>
+        </nav>
+        <p class="copyright">&copy; 2025 I Prompt You. All rights reserved.</p>
+    </footer>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 class="modal-title">Prompt History</h2>
+            <div id="historyList" class="history-list">
+                <p class="no-history-message">No prompts saved yet. Generate a prompt to see it here!</p>
+            </div>
+            <div class="modal-actions">
+                <button id="clearHistoryBtn" class="action-btn">Clear All History</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
