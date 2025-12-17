@@ -1,805 +1,46 @@
-codebase 1 : 
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>I Prompt U - Expert AI Prompt Engineer</title>
-    <link rel="stylesheet" href="style.css">
-    <!-- Using a simple emoji as favicon for a modern, minimal aesthetic -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
-    <!-- Google Fonts: Inter for body text (clean sans-serif), Roboto Mono for code/input (monospaced) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>I Prompt U <span class="emoji">✨</span></h1>
-            <p class="tagline">Your Expert AI Prompt Engineer</p>
-        </header>
-
-        <section class="card input-section">
-            <label for="userInput" class="section-title">Your Raw Idea / Content:</label>
-            <textarea id="userInput" placeholder="Type, speak, or upload your raw idea, task, or content here..."></textarea>
-            
-            <div class="input-controls">
-                <!-- Voice Input Button -->
-                <button id="voiceInputBtn" class="action-btn icon-btn">
-                    <span class="icon">🎤</span>
-                    <span class="btn-text">Speak Idea</span>
-                </button>
-                
-                <!-- File Upload Mechanism -->
-                <div class="file-upload-wrapper">
-                    <!-- Hidden file input to allow broad selection -->
-                    <input type="file" id="fileInput" accept="
-                        text/*,
-                        .txt,.md,.js,.py,.json,.html,.css,.xml,.csv,.log,.sh,.rb,.go,.java,.cpp,.c,.h,.swift,.kt,.php,.ts,.tsx,.jsx,.scss,.less,.yaml,.ini,.cfg,.toml,.rtf,
-                        image/*,.jpg,.jpeg,.png,.gif,.webp,.svg,
-                        application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,
-                        application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
-                        application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation
-                    " style="display: none;">
-                    <!-- Visible button to trigger hidden file input -->
-                    <button id="uploadFileBtn" class="action-btn icon-btn">
-                        <span class="icon">📁</span>
-                        <span class="btn-text">Upload File</span>
-                    </button>
-                    <!-- Display for selected file name -->
-                    <span id="fileNameDisplay" class="file-name-display">No file chosen</span>
-                </div>
-            </div>
-            <!-- Preview area for uploaded images -->
-            <div id="filePreview" class="file-preview"></div>
-            <small class="file-info-text">Supported: Text, Code, Plain Documents (content extracted for text), Images (for multimodal AI). Audio/Video/Complex Docs require manual description or a backend service.</small>
-        </section>
-
-        <!-- Main action button -->
-        <button id="generatePromptBtn" class="primary-btn">Generate AI Prompt</button>
-
-        <!-- Loading Indicator -->
-        <div id="loadingIndicator" class="loading" style="display: none;">
-            <div class="spinner"></div>
-            <span>Crafting your prompt...</span>
-        </div>
-
-        <!-- Error Message Display -->
-        <div id="errorMessage" class="error-message" style="display: none;"></div>
-
-        <section class="card output-section">
-            <label for="outputPrompt" class="section-title">Refined Prompt for AI:</label>
-            <!-- Output textarea for the generated prompt -->
-            <textarea id="outputPrompt" readonly placeholder="Your well-structured prompt will appear here..."></textarea>
-            <!-- Copy button for the generated prompt -->
-            <button id="copyPromptBtn" class="action-btn icon-btn" style="display: none;">
-                <span class="icon">📋</span>
-                <span class="btn-text">Copy Prompt</span>
-            </button>
-        </section>
-    </div>
-
-    <script src="script.js"></script>
-</body>
-</html>
-
-// WARNING: This API key is exposed in client-side code.
-// For a production application, you MUST use a backend server to
-// securely store and access your API key.
-const GEMINI_API_KEY = "AIzaSyCzx6ReMk8ohPJcCjGwHHzu7SvFccJqAbA";
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20"; // As specified
-const API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-// Get DOM elements
-const userInput = document.getElementById('userInput');
-const voiceInputBtn = document.getElementById('voiceInputBtn');
-const fileInput = document.getElementById('fileInput');
-const uploadFileBtn = document.getElementById('uploadFileBtn');
-const fileNameDisplay = document.getElementById('fileNameDisplay');
-const filePreview = document.getElementById('filePreview');
-const generatePromptBtn = document.getElementById('generatePromptBtn');
-const loadingIndicator = document.getElementById('loadingIndicator');
-const errorMessage = document.getElementById('errorMessage');
-const outputPrompt = document.getElementById('outputPrompt');
-const copyPromptBtn = document.getElementById('copyPromptBtn');
-
-// State variables for file uploads, particularly for images
-let attachedImageBase64 = null;
-let attachedImageMimeType = null;
-
-// --- Helper Functions for UI State Management ---
-function showLoading() {
-    loadingIndicator.style.display = 'flex';
-    generatePromptBtn.disabled = true;
-    voiceInputBtn.disabled = true;
-    uploadFileBtn.disabled = true;
-    copyPromptBtn.style.display = 'none'; // Hide copy button while loading
-    outputPrompt.value = ''; // Clear previous output
-    clearError();
-}
-
-function hideLoading() {
-    loadingIndicator.style.display = 'none';
-    generatePromptBtn.disabled = false;
-    voiceInputBtn.disabled = false;
-    uploadFileBtn.disabled = false;
-    checkGenerateButtonState(); // Re-enable generate button based on current input
-}
-
-function showError(message) {
-    errorMessage.innerHTML = `⚠️ ${message}`; // Add emoji for visual cue
-    errorMessage.style.display = 'flex'; // Use flex for icon alignment
-}
-
-function clearError() {
-    errorMessage.textContent = '';
-    errorMessage.style.display = 'none';
-}
-
-function showCopyButton() {
-    if (outputPrompt.value.trim() !== '') {
-        copyPromptBtn.style.display = 'flex'; // Use flex for icon and text alignment
-    }
-}
-
-function clearFileInputState() {
-    fileInput.value = ''; // Clear the file input element itself
-    fileNameDisplay.textContent = 'No file chosen';
-    filePreview.innerHTML = '';
-    filePreview.style.display = 'none';
-    attachedImageBase64 = null;
-    attachedImageMimeType = null;
-    checkGenerateButtonState(); // Update generate button state
-}
-
-// Check if generate button should be enabled
-function checkGenerateButtonState() {
-    if (userInput.value.trim() !== '' || attachedImageBase64 !== null) {
-        generatePromptBtn.disabled = false;
-    } else {
-        generatePromptBtn.disabled = true;
-    }
-}
-
-// --- Main Logic: Generate Prompt (Multimodal Support) ---
-async function generatePrompt() {
-    let inputText = userInput.value.trim();
-
-    if (!inputText && !attachedImageBase64) {
-        showError("Please enter some text, speak your idea, or upload a file (text/image).");
-        return;
-    }
-
-    showLoading();
-
-    try {
-        // System instruction for the AI prompt engineer
-        const systemInstruction = `
-            You are an expert AI prompt engineer named "I Prompt U".
-            Your task is to take the user's raw input (text, voice transcript, or file content, potentially including an image) and convert it into a well-structured, clear, concise, and highly effective prompt suitable for another AI model to understand and execute a specific task.
-
-            Consider the following aspects when refining the prompt:
-            1.  **Clarity & Precision:** Ensure the intent is unambiguous and all terms are precisely defined if necessary.
-            2.  **Specificity:** Include all necessary details, constraints, and requirements for the task.
-            3.  **Context & Background:** Provide sufficient background information for the AI to understand the situation.
-            4.  **Desired Output Format:** Specify the expected format (e.g., list, JSON, paragraph, code snippet, specific tone, length).
-            5.  **Role Assignment (for the target AI):** If appropriate, suggest a persona or role for the target AI to adopt (e.g., "Act as a senior marketing specialist...").
-            6.  **Examples (if applicable):** If the input implies a need for examples, suggest that the user might add them, or structure the prompt to accommodate them.
-
-            Your output should be *only* the refined prompt. Do not add conversational filler, intros, or outros. Focus solely on producing the optimal prompt for the user's intent.
-        `;
-
-        // Construct the parts for the Gemini API request
-        const requestParts = [
-            { text: systemInstruction },
-        ];
-
-        if (inputText) {
-            requestParts.push({ text: `User's initial textual input: "${inputText}"` });
-        }
-
-        if (attachedImageBase64 && attachedImageMimeType) {
-            requestParts.push({
-                inlineData: {
-                    mimeType: attachedImageMimeType,
-                    data: attachedImageBase64
-                }
-            });
-            // Add a instruction to Gemini to consider the image
-            requestParts.push({ text: `Carefully analyze the provided image in conjunction with the user's textual request to formulate the most effective prompt.` });
-        }
-
-        const response = await fetch(API_BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                contents: [
-                    {
-                        parts: requestParts
-                    }
-                ]
-            }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
-        }
-
-        const data = await response.json();
-        // Ensure that the response structure is as expected
-        if (data.candidates && data.candidates.length > 0 && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-            const generatedText = data.candidates[0].content.parts[0].text;
-            outputPrompt.value = generatedText.trim();
-            showCopyButton();
-        } else {
-            throw new Error("No prompt generated. The AI might have refused, produced empty output, or encountered an internal issue.");
-        }
-
-    } catch (error) {
-        console.error('Error generating prompt:', error);
-        showError(`Failed to generate prompt: ${error.message}. Please try again.`);
-        outputPrompt.value = "Failed to generate prompt. Please check your input or try again later.";
-    } finally {
-        hideLoading();
-    }
-}
-
-// --- Event Listeners ---
-generatePromptBtn.addEventListener('click', generatePrompt);
-
-// Voice Input (Speech Recognition)
-voiceInputBtn.addEventListener('click', () => {
-    // Check browser compatibility
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        showError("Your browser does not fully support Speech Recognition (e.g., Chrome, Edge, Firefox). Please use text input.");
-        return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-
-    recognition.lang = 'en-US'; // Set language
-    recognition.interimResults = false; // Only return final results
-    recognition.maxAlternatives = 1; // Only the most likely result
-
-    voiceInputBtn.innerHTML = '<span class="icon">🎧</span> <span class="btn-text">Listening...</span>';
-    voiceInputBtn.disabled = true;
-    generatePromptBtn.disabled = true;
-    clearError();
-    clearFileInputState(); // Clear any attached files when voice input is initiated
-
-    recognition.start();
-
-    recognition.onresult = (event) => {
-        const speechResult = event.results[0][0].transcript;
-        userInput.value = speechResult;
-        voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
-        voiceInputBtn.disabled = false;
-        checkGenerateButtonState(); // Re-enable generate button
-    };
-
-    recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
-        showError(`Speech recognition error: ${event.error}. Please try again.`);
-        voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
-        voiceInputBtn.disabled = false;
-        checkGenerateButtonState(); // Re-enable generate button
-    };
-
-    recognition.onend = () => {
-        // This fires when recognition stops, regardless of success.
-        // Only reset button text if it's still "Listening..." and no new speech was captured.
-        if (voiceInputBtn.textContent.includes('Listening')) {
-           voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
-           voiceInputBtn.disabled = false;
-           checkGenerateButtonState(); // Re-enable generate button
-        }
-    };
-});
-
-// File Upload
-uploadFileBtn.addEventListener('click', () => {
-    fileInput.click(); // Programmatically click the hidden file input
-});
-
-fileInput.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (!file) {
-        clearFileInputState();
-        return;
-    }
-
-    fileNameDisplay.textContent = file.name;
-    clearError();
-    filePreview.innerHTML = ''; // Clear previous preview
-    filePreview.style.display = 'none';
-
-    // File type detection logic
-    const isTextFile = file.type.startsWith('text/') ||
-                       /\.(txt|md|js|py|json|html|css|xml|csv|log|sh|rb|go|java|cpp|c|h|swift|kt|php|ts|tsx|jsx|scss|less|yaml|ini|cfg|toml|rtf)$/i.test(file.name);
-    
-    // Common document formats that are NOT easily parsable client-side for content extraction
-    const isComplexDocument = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(file.name);
-    
-    const isImageFile = file.type.startsWith('image/');
-    const isAudioVideoFile = file.type.startsWith('audio/') || file.type.startsWith('video/');
-
-    // Implement a reasonable client-side file size limit (e.g., 5MB)
-    const MAX_FILE_SIZE_MB = 5;
-    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        showError(`File is too large. Max ${MAX_FILE_SIZE_MB}MB for direct processing. For larger files, please provide a summary in the text input or consider a backend service.`);
-        clearFileInputState();
-        return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-        if (isTextFile) {
-            userInput.value = e.target.result;
-            attachedImageBase64 = null; // Clear image if text file is uploaded
-            attachedImageMimeType = null;
-            filePreview.style.display = 'none';
-        } else if (isImageFile) {
-            userInput.value = ''; // Clear text input when an image is uploaded, user can then type their intent for the image
-            // Extract base64 data part from the Data URL
-            attachedImageBase64 = e.target.result.split(',')[1];
-            attachedImageMimeType = file.type;
-            
-            // Create and display image preview
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.alt = `Preview of ${file.name}`;
-            filePreview.appendChild(img);
-            filePreview.style.display = 'flex'; // Show image preview container
-        } else if (isAudioVideoFile || isComplexDocument) {
-            showError(`Direct processing of "${file.name}" (${file.type}) is not supported client-side for content extraction. Please describe its content in the text box for the AI, or use a backend for full processing.`);
-            clearFileInputState();
-            userInput.value = ''; // Ensure text input is clear if an unsupported file type is "attached"
-        }
-        checkGenerateButtonState(); // Update generate button state after file processing
-    };
-
-    reader.onerror = (e) => {
-        console.error("File reading error:", e);
-        showError("Failed to read file. Please try again.");
-        clearFileInputState();
-    };
-
-    // Read the file based on its type
-    if (isTextFile) {
-        reader.readAsText(file);
-    } else if (isImageFile) {
-        reader.readAsDataURL(file); // For images, read as Data URL for base64 encoding
-    } else if (isAudioVideoFile || isComplexDocument) {
-        // For unsupported types, we don't read them but inform the user and clear state
-        clearFileInputState();
-    }
-});
-
-// Copy to Clipboard
-copyPromptBtn.addEventListener('click', async () => {
-    try {
-        await navigator.clipboard.writeText(outputPrompt.value);
-        const originalContent = copyPromptBtn.innerHTML;
-        copyPromptBtn.innerHTML = '<span class="icon">✅</span> <span class="btn-text">Copied!</span>';
-        setTimeout(() => {
-            copyPromptBtn.innerHTML = originalContent;
-        }, 2000);
-    } catch (err) {
-        console.error('Failed to copy text: ', err);
-        showError('Failed to copy prompt to clipboard. Please copy manually.');
-    }
-});
-
-// Event listeners for input changes to enable/disable generate button
-userInput.addEventListener('input', checkGenerateButtonState);
-// No need for fileInput.addEventListener('change', checkGenerateButtonState) directly
-// as it's called within the change handler already.
-
-// Initial check on page load
-checkGenerateButtonState();
-
-/* Import Google Fonts for Inter and Roboto Mono */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400&display=swap');
-
-/* CSS Variables for a consistent and easily changeable theme */
-:root {
-    --primary-color: #6C63FF; /* Vibrant Violet */
-    --primary-light: #8A81FF;
-    --primary-dark: #504CB3;
-    --accent-color: #FFA07A; /* Light Salmon for highlights, though sparingly used here */
-    --text-color: #333333;
-    --text-light: #666666;
-    --bg-color: #F8F9FA; /* Off-white background */
-    --card-bg: #FFFFFF; /* White card background */
-    --border-color: #E0E0E0; /* Light gray border */
-    --error-color: #DC3545; /* Red for errors */
-    --success-color: #28A745; /* Green for success */
-    --shadow-light: rgba(0, 0, 0, 0.05); /* Light shadow for subtle depth */
-    --shadow-medium: rgba(0, 0, 0, 0.1); /* Medium shadow for main container */
-
-    --border-radius-base: 12px;
-    --padding-base: 25px;
-}
-
-body {
-    font-family: 'Inter', sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    display: flex;
-    justify-content: center;
-    align-items: flex-start; /* Align content to the top */
-    min-height: 100vh; /* Ensure full viewport height */
-    box-sizing: border-box; /* Include padding and border in element's total width and height */
-    line-height: 1.6; /* Improved readability */
-}
-
-.container {
-    background-color: var(--card-bg);
-    border-radius: var(--border-radius-base);
-    box-shadow: 0 10px 30px var(--shadow-medium); /* Prominent shadow for the main container */
-    padding: var(--padding-base);
-    max-width: 900px;
-    width: 100%;
-    text-align: center;
-    border-top: 6px solid var(--primary-color); /* Signature top border */
-    display: flex;
-    flex-direction: column;
-    gap: 25px; /* Spacing between main sections */
-}
-
-header {
-    margin-bottom: 20px;
-}
-
-h1 {
-    color: var(--primary-color);
-    font-size: 3em;
-    margin-bottom: 5px;
-    font-weight: 700;
-}
-
-.emoji {
-    font-size: 0.9em; /* Adjust emoji size */
-}
-
-.tagline {
-    font-size: 1.25em;
-    color: var(--text-light);
-    font-weight: 400;
-    margin-top: 0;
-}
-
-/* Card styling for sections */
-.card {
-    background-color: var(--card-bg);
-    border-radius: var(--border-radius-base);
-    box-shadow: 0 4px 15px var(--shadow-light); /* Subtle shadow for inner cards */
-    padding: var(--padding-base);
-    text-align: left; /* Align content inside card to left */
-}
-
-.section-title {
-    display: block;
-    font-size: 1.2em;
-    font-weight: 600;
-    color: var(--primary-dark);
-    margin-bottom: 15px;
-}
-
-textarea {
-    width: 100%;
-    min-height: 160px;
-    padding: 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-family: 'Roboto Mono', monospace; /* Monospaced font for code-like input */
-    font-size: 1em;
-    resize: vertical; /* Allow vertical resizing */
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    box-sizing: border-box; /* Include padding in width calculation */
-}
-
-textarea:focus {
-    border-color: var(--primary-color);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.2); /* Focus ring effect */
-}
-
-.input-controls {
-    display: flex;
-    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
-    gap: 15px;
-    margin-top: 20px;
-    margin-bottom: 15px;
-    justify-content: flex-start; /* Align items to the start */
-}
-
-button {
-    padding: 12px 25px;
-    border: none;
-    border-radius: 8px;
-    font-size: 1.05em;
-    cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px; /* Spacing between icon and text */
-}
-
-.icon-btn .icon {
-    font-size: 1.2em; /* Larger icons */
-}
-
-/* Primary Button Styling */
-.primary-btn {
-    background-color: var(--primary-color);
-    color: #fff;
-    box-shadow: 0 4px 10px rgba(108, 99, 255, 0.3);
-    align-self: center; /* Center the button in the container */
-}
-
-.primary-btn:hover {
-    background-color: var(--primary-light);
-    transform: translateY(-2px); /* Lift effect on hover */
-    box-shadow: 0 6px 15px rgba(108, 99, 255, 0.4);
-}
-
-.primary-btn:active {
-    transform: translateY(0); /* Reset on click */
-    box-shadow: 0 2px 5px rgba(108, 99, 255, 0.3);
-}
-
-.primary-btn:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Secondary Action Button Styling */
-.action-btn {
-    background-color: var(--border-color); /* Lighter background */
-    color: var(--text-color);
-}
-
-.action-btn:hover {
-    background-color: #d0d0d0; /* Slightly darker */
-    transform: translateY(-2px);
-    box-shadow: 0 2px 5px var(--shadow-light);
-}
-
-.action-btn:active {
-    transform: translateY(0);
-    box-shadow: none;
-}
-
-.action-btn:disabled {
-    background-color: #e0e0e0;
-    color: #999;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-.file-upload-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-grow: 1; /* Allow wrapper to take available space */
-    max-width: 100%; /* Prevent overflow */
-}
-
-.file-name-display {
-    font-size: 0.95em;
-    color: var(--text-light);
-    white-space: nowrap; /* Prevent wrapping */
-    overflow: hidden;
-    text-overflow: ellipsis; /* Show ellipsis if text overflows */
-    max-width: 150px; /* Limit width */
-}
-
-.file-info-text {
-    color: var(--text-light);
-    display: block;
-    margin-top: 5px;
-    font-size: 0.9em;
-}
-
-.file-preview {
-    margin-top: 15px;
-    max-width: 100%;
-    max-height: 200px; /* Limit height */
-    overflow: hidden; /* Hide overflow if image is too large */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px dashed var(--border-color);
-    border-radius: 8px;
-    padding: 10px;
-    display: none; /* Hidden by default */
-}
-
-.file-preview img {
-    max-width: 100%;
-    max-height: 180px; /* Adjust height within preview box */
-    border-radius: 6px;
-    object-fit: contain; /* Ensure image fits within bounds without cropping */
-}
-
-/* Loading Indicator Styling */
-.loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 15px;
-    margin: 25px 0;
-    color: var(--primary-color);
-    font-size: 1.2em;
-    font-weight: 600;
-}
-
-.spinner {
-    border: 4px solid rgba(108, 99, 255, 0.3);
-    border-top: 4px solid var(--primary-color);
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Error Message Styling */
-.error-message {
-    color: var(--error-color);
-    background-color: #fce8e9; /* Light red background */
-    border: 1px solid var(--error-color);
-    padding: 12px;
-    border-radius: 8px;
-    margin: 25px 0;
-    font-weight: 500;
-    text-align: left;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.error-message::before {
-    content: '⚠️'; /* Warning emoji for visual emphasis */
-    font-size: 1.2em;
-    flex-shrink: 0; /* Prevent emoji from shrinking */
-}
-
-/* Output Section Styling */
-.output-section #outputPrompt {
-    background-color: var(--bg-color); /* Slightly different background for output to distinguish */
-    min-height: 200px;
-    color: var(--text-color);
-    border: 1px dashed var(--primary-light); /* Dashed border for generated content */
-    margin-bottom: 15px;
-}
-
-.output-section #copyPromptBtn {
-    float: right; /* Align copy button to the right */
-    margin-top: 0;
-}
-
-/* --- Responsive Adjustments --- */
-@media (max-width: 768px) {
-    .container {
-        padding: 20px;
-        margin: 15px;
-        gap: 20px;
-    }
-    h1 {
-        font-size: 2.5em;
-    }
-    .tagline {
-        font-size: 1.1em;
-    }
-    .card {
-        padding: 20px;
-    }
-    .section-title {
-        font-size: 1.1em;
-    }
-    textarea {
-        min-height: 120px;
-        padding: 12px;
-    }
-    .input-controls {
-        flex-direction: column; /* Stack buttons vertically */
-        gap: 10px;
-    }
-    .file-upload-wrapper {
-        flex-direction: row; /* Keep button and name display inline */
-        justify-content: flex-start;
-        align-items: center;
-    }
-    .file-name-display {
-        max-width: calc(100% - 150px); /* Adjust width for smaller screens */
-        flex-grow: 1;
-    }
-    button {
-        padding: 10px 20px;
-        font-size: 1em;
-        width: 100%; /* Make buttons full width in input-controls */
-    }
-    .file-upload-wrapper button {
-        width: auto; /* Reset for file upload button inside wrapper */
-        flex-shrink: 0;
-    }
-    .output-section #copyPromptBtn {
-        float: none; /* Stack copy button below output */
-        width: 100%;
-        margin-top: 10px;
-    }
-}
-
-@media (max-width: 480px) {
-    body {
-        padding: 10px;
-    }
-    .container {
-        padding: 15px;
-        margin: 0;
-        border-radius: 8px;
-        border-top-width: 4px;
-        gap: 15px;
-    }
-    h1 {
-        font-size: 2em;
-    }
-    .tagline {
-        font-size: 0.95em;
-    }
-    .card {
-        padding: 15px;
-    }
-    .section-title {
-        font-size: 1em;
-    }
-    textarea {
-        min-height: 100px;
-        font-size: 0.9em;
-    }
-    button {
-        font-size: 0.95em;
-        padding: 10px 15px;
-        gap: 5px;
-    }
-    .file-name-display {
-        font-size: 0.85em;
-        max-width: 100px; /* Further limit width */
-    }
-    .spinner {
-        width: 25px;
-        height: 25px;
-    }
-    .loading span {
-        font-size: 1em;
-    }
-    .error-message {
-        font-size: 0.9em;
-        padding: 10px;
-    }
-}
-
--------------------------------------------------------------------------------------
-
-codebase 2: 
+--- START FILE: .gitignore ---
+
+# -----------------------------------------------------------------------------
+# Node.js / Server Environment
+# -----------------------------------------------------------------------------
+# Dependency directories
+node_modules/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Build and Temp Directories
+/dist
+/build
+/tmp
+
+# -----------------------------------------------------------------------------
+# Secrets and Environment Variables
+# -----------------------------------------------------------------------------
+# CRUCIAL: Never commit API keys or sensitive configurations!
+.env
+.env.*
+.vault
+
+# -----------------------------------------------------------------------------
+# OS/Editor Specific Files
+# -----------------------------------------------------------------------------
+.DS_Store          # macOS
+Thumbs.db          # Windows
+*.swp              # Vim swap files
+.idea/             # JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.vscode/           # Visual Studio Code settings (if they contain user preferences)
+package-lock.json  
+serverr.js
+
+
+--- END FILE: .gitignore ---
+
+--- START FILE: index.html ---
 
 <!DOCTYPE html>
 <html lang="en">
@@ -840,7 +81,6 @@ codebase 2:
                 <h2>Input your desired output, and our AI will craft the perfect prompt for other AI models.</h2>
                 <div class="prompt-input-area">
                     <div class="input-field-group">
-                        <span class="icon search-icon">🔍</span>
                         <textarea id="userInput" placeholder="Describe your desired output here..."></textarea>
                         <button id="generatePromptBtn" class="generate-btn primary-btn">Generate Prompt</button>
                     </div>
@@ -912,7 +152,7 @@ codebase 2:
 
         <section id="contact-section" class="section-text" style="padding-bottom: 80px; text-align: center;">
             <h2 class="section-heading">Contact Us</h2>
-            <p>Have questions or feedback? Reach out to us at support@ipromptyou.com</p>
+            <p>Have questions or feedback? Reach out to us at <a href="mailto:souparnopaulreborn@gmail.com">souparnopaulreborn@gmail.com</a></p>
         </section>
     </main>
 
@@ -924,7 +164,7 @@ codebase 2:
                 <li><a href="#">Contact Us</a></li>
             </ul>
         </nav>
-        <p class="copyright">&copy; 2024 I Prompt You. All rights reserved.</p>
+        <p class="copyright">&copy; 2025 I Prompt You. All rights reserved.</p>
     </footer>
 
     <!-- History Modal -->
@@ -945,12 +185,53 @@ codebase 2:
 </body>
 </html>
 
-// WARNING: This API key is exposed in client-side code.
-// For a production application, you MUST use a backend server to
-// securely store and access your API key.
-const GEMINI_API_KEY = "AIzaSyCzx6ReMk8ohPJcCjGwHHzu7SvFccJqAbA";
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
-const API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+--- END FILE: index.html ---
+
+--- START FILE: netlify.toml ---
+
+# netlify.toml
+
+[build]
+  # Command to run before building (installs function dependencies)
+  command = "npm run build"
+  # Directory containing your static assets
+  publish = "/"
+  # Netlify automatically uses Node.js for functions
+
+[functions]
+  # Directory where Netlify functions are located
+  directory = "netlify"
+  # Node.js version to use for functions
+  node_bundler = "esbuild"
+
+--- END FILE: netlify.toml ---
+
+--- START FILE: package.json ---
+
+{
+  "name": "prompt-generator",
+  "version": "1.0.0",
+  "description": "Secure multimodal prompt generator.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'Building static files and functions...' && npm install --prefix netlify" 
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1"
+  }
+}
+
+--- END FILE: package.json ---
+
+--- START FILE: script.js ---
+
+// script.js (Client-side)
+
+// Removed: GEMINI_API_KEY and direct Google API URL
+const API_ENDPOINT = "/.netlify/functions/generate";
+const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025"; // Used for context/logging only if needed
 
 // Get DOM elements
 const userInput = document.getElementById('userInput');
@@ -1038,7 +319,7 @@ function removeFileFromState(fileId) {
 }
 
 function clearFileInputState() {
-    fileInput.value = ''; // Clear the file input element itself
+    // IMPORTANT: fileInput.value = '' is now handled in uploadFileBtn click handler
     fileNameDisplay.textContent = 'No files chosen';
     filePreview.innerHTML = '';
     filePreview.classList.remove('active'); // Hide preview container
@@ -1176,8 +457,9 @@ async function generatePrompt() {
             uploadedImageParts.forEach(part => requestParts.push(part));
             requestParts.push({ text: `Carefully analyze the provided image(s) in conjunction with the user's textual request and any other uploaded text to formulate the most effective prompt.` });
         }
-        
-        const response = await fetch(API_BASE_URL, {
+
+        // --- Use local proxy endpoint ---
+        const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1212,8 +494,9 @@ async function generatePrompt() {
 
     } catch (error) {
         console.error('Error generating prompt:', error);
-        showError(`Failed to generate prompt: ${error.message}. Please try again.`);
-        outputPrompt.value = "Failed to generate prompt. Please check your input or try again later.";
+        // User-friendly error message, especially if the server fails
+        showError(`Failed to generate prompt: ${error.message}. Ensure the server is running and the API key is correct in the .env file.`);
+        outputPrompt.value = "Failed to generate prompt. Please check your input or connection.";
     } finally {
         hideLoading();
     }
@@ -1222,11 +505,12 @@ async function generatePrompt() {
 // --- Event Listeners ---
 generatePromptBtn.addEventListener('click', generatePrompt);
 
-// Voice Input (Speech Recognition)
+// Voice Input (Speech Recognition) - Logic remains unchanged
 voiceInputBtn.addEventListener('click', () => {
     if (voiceRecognitionActive) {
-        // If active, stop recognition
-        recognition.stop();
+        if (recognition) {
+            recognition.stop();
+        }
         return;
     }
 
@@ -1242,20 +526,20 @@ voiceInputBtn.addEventListener('click', () => {
     recognition.maxAlternatives = 1;
 
     voiceInputBtn.innerHTML = '<span class="icon">🛑</span> <span class="btn-text">Stop Listening</span>';
-    voiceInputBtn.classList.add('active-listening'); // Add class for styling
-    voiceInputBtn.disabled = false; // User can click to stop, so don't disable itself
-    uploadFileBtn.disabled = true; // Disable file upload while listening
-    generatePromptBtn.disabled = true; // Disable generate while listening
-    userInput.disabled = true; // Disable manual text input while listening
+    voiceInputBtn.classList.add('active-listening');
+    voiceInputBtn.disabled = false;
+    uploadFileBtn.disabled = true;
+    generatePromptBtn.disabled = true;
+    userInput.disabled = true;
     clearError();
-    userInput.value = ''; // Clear previous text input when starting new voice input.
+    userInput.value = '';
 
     voiceRecognitionActive = true;
     recognition.start();
 
     recognition.onresult = (event) => {
         const speechResult = event.results[0][0].transcript;
-        userInput.value = speechResult; // Replace with new speech
+        userInput.value = speechResult;
         checkGenerateButtonState();
     };
 
@@ -1273,8 +557,7 @@ voiceInputBtn.addEventListener('click', () => {
     };
 
     recognition.onend = () => {
-        // Recognition ended (either by user stop, timeout, or error handled above)
-        if (voiceRecognitionActive) { // Only reset if it wasn't an error already handled
+        if (voiceRecognitionActive) {
             voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
             voiceInputBtn.classList.remove('active-listening');
             voiceInputBtn.disabled = false;
@@ -1287,42 +570,42 @@ voiceInputBtn.addEventListener('click', () => {
 });
 
 
-// File Upload
+// File Upload - Logic remains unchanged
 uploadFileBtn.addEventListener('click', () => {
-    fileInput.click(); // Programmatically click the hidden file input
+    fileInput.value = '';
+    fileInput.click();
 });
 
 fileInput.addEventListener('change', async (event) => {
     const files = event.target.files;
     if (files.length === 0) {
-        // If user opened dialog but selected no files
-        clearFileInputState(); // Clears any previous files or 'No files chosen'
+        clearFileInputState();
         return;
     }
 
-    clearError(); // Clear previous errors
-    clearFileInputState(); // Clear existing files and previews when new ones are selected
+    clearError();
+    clearFileInputState();
 
-    const MAX_FILE_SIZE_MB = 5; // Per file limit
+    const MAX_FILE_SIZE_MB = 5;
     const processingPromises = [];
 
     for (const file of files) {
         if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
             showError(`File "${file.name}" is too large (>${MAX_FILE_SIZE_MB}MB). It will be skipped.`);
-            continue; // Skip this file but continue to process others
+            continue;
         }
 
         const isTextFile = file.type.startsWith('text/') ||
                            /\.(txt|md|js|py|json|html|css|xml|csv|log|sh|rb|go|java|cpp|c|h|swift|kt|php|ts|tsx|jsx|scss|less|yaml|ini|cfg|toml|rtf)$/i.test(file.name);
-        
+
         const isImageFile = file.type.startsWith('image/');
-        
+
         const isComplexDocument = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(file.name);
         const isAudioVideoFile = file.type.startsWith('audio/') || file.type.startsWith('video/');
 
         if (isAudioVideoFile || isComplexDocument) {
             showError(`Direct content extraction from "${file.name}" (${file.type}) is not fully supported client-side. Please describe its content in the text box for the AI. This file will be skipped.`);
-            continue; // Skip this file
+            continue;
         }
 
         processingPromises.push(new Promise((resolve, reject) => {
@@ -1360,18 +643,17 @@ fileInput.addEventListener('change', async (event) => {
     }
 
     try {
-        await Promise.allSettled(processingPromises); // Wait for all file processing to finish
+        await Promise.allSettled(processingPromises);
     } catch (error) {
         console.error("One or more files encountered an error during processing:", error);
     }
-    
-    // After all files are processed/skipped, update UI
+
     renderFilePreviews();
     checkGenerateButtonState();
 });
 
 
-// Copy to Clipboard
+// Copy to Clipboard - Logic remains unchanged
 copyPromptBtn.addEventListener('click', async () => {
     try {
         await navigator.clipboard.writeText(outputPrompt.value);
@@ -1390,38 +672,37 @@ copyPromptBtn.addEventListener('click', async () => {
 // --- New Prompt / Refresh Functionality ---
 function newPromptRefresh() {
     userInput.value = '';
-    clearFileInputState(); // Clears attachedFiles, fileInput, fileNameDisplay, filePreview
+    clearFileInputState();
     outputPrompt.value = '';
     clearError();
     copyPromptBtn.style.display = 'none';
-    if (voiceRecognitionActive && recognition) { // Check if recognition object exists
-        recognition.stop(); // Stop listening if active
+    if (voiceRecognitionActive && recognition) {
+        recognition.stop();
     }
-    // Reset voice input button visual state if it was active
     voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
     voiceInputBtn.classList.remove('active-listening');
-    voiceRecognitionActive = false; // Ensure state is false
-    userInput.disabled = false; // Re-enable user input
-    uploadFileBtn.disabled = false; // Re-enable file upload
-    checkGenerateButtonState(); // Update generate button state
+    voiceRecognitionActive = false;
+    userInput.disabled = false;
+    uploadFileBtn.disabled = false;
+    checkGenerateButtonState();
 }
 
 // Event Listeners for new header buttons
 newPromptRefreshBtn.addEventListener('click', newPromptRefresh);
 viewHistoryBtn.addEventListener('click', () => {
     renderHistoryModal();
-    historyModal.style.display = 'flex'; // Use flex to center the modal
+    historyModal.style.display = 'flex';
 });
 
 
-// --- History Management ---
+// --- History Management (Unchanged) ---
 const HISTORY_KEY = 'aiPromptHistory';
-const MAX_HISTORY_ITEMS = 15; // Limit to prevent local storage bloat
+const MAX_HISTORY_ITEMS = 15;
 
 function loadHistoryFromLocalStorage() {
     try {
         const history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-        return history.sort((a, b) => b.timestamp - a.timestamp); // Sort by newest first
+        return history.sort((a, b) => b.timestamp - a.timestamp);
     } catch (e) {
         console.error("Failed to load history from local storage:", e);
         return [];
@@ -1441,16 +722,15 @@ function savePromptToHistory(rawInput, generatedPrompt, attachedFileNames) {
     let history = loadHistoryFromLocalStorage();
 
     const newEntry = {
-        id: generateUniqueId(), // Reuse unique ID generator
+        id: generateUniqueId(),
         timestamp: Date.now(),
         rawInputText: rawInput,
         generatedPrompt: generatedPrompt,
-        attachedFiles: attachedFileNames // Array of file names
+        attachedFiles: attachedFileNames
     };
 
-    history.unshift(newEntry); // Add to the beginning
+    history.unshift(newEntry);
 
-    // Trim history to MAX_HISTORY_ITEMS
     if (history.length > MAX_HISTORY_ITEMS) {
         history = history.slice(0, MAX_HISTORY_ITEMS);
     }
@@ -1460,7 +740,7 @@ function savePromptToHistory(rawInput, generatedPrompt, attachedFileNames) {
 
 function renderHistoryModal() {
     const history = loadHistoryFromLocalStorage();
-    historyList.innerHTML = ''; // Clear previous entries
+    historyList.innerHTML = '';
 
     if (history.length === 0) {
         historyList.innerHTML = '<p class="no-history-message">No prompts saved yet. Generate a prompt to see it here!</p>';
@@ -1516,21 +796,18 @@ function loadPromptFromHistory(id) {
     const entry = history.find(item => item.id === id);
 
     if (entry) {
-        // Clear current state
-        newPromptRefresh(); // Resets everything first
+        newPromptRefresh();
 
-        // Populate with history data
         userInput.value = entry.rawInputText;
         outputPrompt.value = entry.generatedPrompt;
 
-        // Files are not reloaded, provide a warning or clear indication
         if (entry.attachedFiles && entry.attachedFiles.length > 0) {
             showError(`Loaded text from history. Note: Original files (${entry.attachedFiles.join(', ')}) are NOT reloaded. Please re-upload if needed to use them.`);
         }
-        
-        showCopyButton(); // Ensure copy button is visible if output is loaded
-        historyModal.style.display = 'none'; // Close modal
-        checkGenerateButtonState(); // Update button states
+
+        showCopyButton();
+        historyModal.style.display = 'none';
+        checkGenerateButtonState();
     } else {
         showError("History item not found.");
     }
@@ -1541,13 +818,13 @@ function deleteHistoryItem(id) {
     let history = loadHistoryFromLocalStorage();
     history = history.filter(item => item.id !== id);
     saveHistoryToLocalStorage(history);
-    renderHistoryModal(); // Refresh the modal content
+    renderHistoryModal();
 }
 
 function clearAllHistory() {
     if (!confirm('Are you sure you want to clear ALL prompt history? This cannot be undone.')) return;
     localStorage.removeItem(HISTORY_KEY);
-    renderHistoryModal(); // Refresh the modal content
+    renderHistoryModal();
 }
 
 // Event Listeners for History Modal
@@ -1570,21 +847,101 @@ userInput.addEventListener('input', checkGenerateButtonState);
 // Initial check on page load
 checkGenerateButtonState();
 
+--- END FILE: script.js ---
+
+--- START FILE: serverr.js ---
+
+// server.js
+require('dotenv').config();
+const express = require('express');
+const path = require('path');
+// const fetch = require('node-fetch'); <--- REMOVED THIS LINE
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025"; // Model remains consistent
+
+// Middleware to parse JSON bodies from the client
+app.use(express.json({ limit: '50mb' })); // Increased limit for large file uploads (base64)
+
+// Serve static files from the current directory (HTML, CSS, Client JS)
+app.use(express.static(path.join(__dirname)));
+
+// --- API Proxy Endpoint ---
+app.post('/api/generatePrompt', async (req, res) => {
+    if (!GEMINI_API_KEY) {
+        return res.status(500).json({ error: "Server error: GEMINI_API_KEY is not configured in the .env file." });
+    }
+
+    try {
+        const clientPayload = req.body;
+
+        // NOTE: fetch is now the native Node.js global function (since v18)
+        const API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+        // Forward the request to the Gemini API
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(clientPayload),
+        });
+
+        // The response must be parsed correctly depending on its content type
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // Handle non-JSON errors (like HTML 404 or plain text errors)
+            const text = await response.text();
+            data = { error: { message: text } };
+        }
+
+
+        if (!response.ok) {
+            console.error("Gemini API Error:", data.error?.message || response.statusText);
+            // Pass the error back to the client
+            return res.status(response.status).json(data);
+        }
+
+        // Send the successful response back to the client
+        res.json(data);
+
+    } catch (error) {
+        console.error('Proxy Error:', error.message);
+        res.status(500).json({ error: `Internal server error: ${error.message}` });
+    }
+});
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`\n\n✅ Server is running securely on http://localhost:${PORT}`);
+    console.log(`Your API key is securely loaded from the .env file.`);
+});
+
+--- END FILE: serverr.js ---
+
+--- START FILE: style.css ---
+
 /* Import Google Fonts for Space Grotesk and Noto Sans */
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans:wght@400;500;700&display=swap');
 
 /* CSS Variables for a consistent and easily changeable dark theme */
 :root {
-    --bg-color: #111118; /* Deep indigo/charcoal */
-    --primary-accent: #1313ec; /* Vibrant electric blue */
-    --primary-accent-hover: #0a0acf; /* Slightly darker blue for hover */
-    --primary-accent-dark: #0f0fbf; /* Even darker blue */
+    --bg-color: #000000; /* Changed to the darkest black */
+    --primary-accent: #1313ec; /* Keep vibrant blue for accents */
+    --primary-accent-hover: #0a0acf;
+    --primary-accent-dark: #0f0fbf;
     --text-white: #FFFFFF;
-    --text-light-grey: #9d9db9; /* For secondary text, placeholders */
-    --element-bg: #1c1c27; /* Slightly lighter dark grey for interactive elements */
-    --element-bg-hover: #2a2a38; /* For hover states on dark elements */
+    --text-light-grey: #b3b3c2; /* Slightly brightened for better contrast on pure black */
+    --element-bg: #1c1c27; /* These dark greys will now have more contrast against pure black */
+    --element-bg-hover: #2a2a38;
     --border-dark-grey: #3b3b54;
-    --header-border: #282839; /* For the bottom border of the header */
+    --header-border: #282839;
     --error-color: #DC3545; /* Red for errors */
     --success-color: #28A745; /* Green for success */
     --shadow-dark: rgba(0, 0, 0, 0.3); /* Dark shadow */
@@ -1743,8 +1100,8 @@ section {
     left: 0;
     right: 0;
     bottom: 0;
-    /* Dark-to-transparent gradient overlay */
-    background: linear-gradient(to bottom, rgba(17, 17, 24, 0.4) 0%, rgba(17, 17, 24, 0.8) 70%, var(--bg-color) 100%);
+    /* Dark-to-transparent gradient overlay - now using pure black rgba values */
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.8) 70%, var(--bg-color) 100%);
     z-index: 1;
 }
 
@@ -1754,7 +1111,7 @@ section {
     max-width: 900px;
     width: 100%;
     text-align: center;
-    background-color: var(--element-bg); /* Card-like background */
+    background-color: #000000; /* Explicitly set hero content background to darkest black */
     padding: calc(var(--padding-base) * 1.5);
     border-radius: var(--border-radius-base);
     box-shadow: 0 10px 30px var(--shadow-dark);
@@ -1796,26 +1153,18 @@ section {
     margin-bottom: 15px;
 }
 
-.input-field-group .icon.search-icon {
-    padding: 0 15px;
-    display: flex;
-    align-items: center;
-    font-size: 1.5em;
-    color: var(--text-light-grey);
-    flex-shrink: 0; /* Prevent icon from shrinking */
-}
-
 textarea#userInput {
     flex-grow: 1;
-    min-height: 120px; /* Adjusted height for hero section */
-    padding: 15px 0; /* No left/right padding due to icon/button */
-    border: none; /* Remove default border */
+    min-height: 80px; /* Reduced height for a sleeker desktop look */
+    padding: 15px; /* Added full padding as the icon is removed */
+    border: none;
     background-color: transparent;
     color: var(--text-white);
     font-family: 'Noto Sans', sans-serif;
     font-size: 1.1em;
     resize: vertical;
-    outline: none; /* Remove focus outline */
+    outline: none;
+    /* Ensure no extra space, it fills the remaining space */
 }
 
 textarea#userInput::placeholder {
@@ -1860,9 +1209,22 @@ textarea#userInput::placeholder {
 .generate-btn {
     padding: 10px 25px;
     font-size: 1.1em;
-    border-radius: 0 var(--border-radius-base) var(--border-radius-base) 0; /* Rounded only on right */
-    flex-shrink: 0; /* Prevent button from shrinking */
-    box-shadow: none; /* Remove extra shadow for integrated button */
+    /* The border-radius will now correctly apply 0 on the left where it meets textarea */
+    border-radius: 0 var(--border-radius-base) var(--border-radius-base) 0;
+    flex-shrink: 0; /* Crucial: Prevents the button from shrinking */
+    /* Add a min-width to ensure the text always fits */
+    min-width: fit-content; /* Adjusts to content, preventing text cutoff */
+    box-shadow: none;
+}
+
+@media (max-width: 768px) {
+    textarea#userInput {
+        border-radius: var(--border-radius-base) var(--border-radius-base) 0 0;
+        min-height: 100px; /* Slight increase for mobile readability */
+        padding: 15px; /* Consistent padding */
+        text-align: center;
+        width: 100%;
+    }
 }
 
 .generate-btn:hover {
@@ -1934,7 +1296,7 @@ button#voiceInputBtn.active-listening:hover {
 
 .file-name-display {
     flex: 1 1 0; /* Allow it to grow, shrink, and have a base of 0 */
-    min-width: 0; /* Essential for text-overflow: ellipsis to work */
+    min-width: 0; /* Essential for text-overflow: ellipsis to work without pushing parent */
     font-size: 0.9em;
     color: var(--text-light-grey);
     white-space: nowrap; /* Prevent wrapping */
@@ -2251,7 +1613,7 @@ textarea#outputPrompt {
     width: 8px;
 }
 .history-list::-webkit-scrollbar-track {
-    background: #3b3b54;
+    background: #282839;
     border-radius: 4px;
 }
 .history-list::-webkit-scrollbar-thumb {
@@ -2443,6 +1805,7 @@ textarea#outputPrompt {
         flex-direction: column;
         align-items: flex-start;
         gap: 5px;
+        width: 100%; /* Ensure wrapper takes full width */
     }
     .file-upload-wrapper button {
         width: 100%;
@@ -2582,5 +1945,82 @@ textarea#outputPrompt {
     }
 }
 
------------------------------------------------------------------------------------------------------------
+--- END FILE: style.css ---
 
+--- START FILE: netlify\generate.js ---
+
+// netlify/generate.js (Updated to require node-fetch explicitly)
+const fetch = require('node-fetch'); // <-- Explicitly require the installed package
+const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
+
+// Main handler for the serverless function
+exports.handler = async (event, context) => {
+    // 1. Check for API Key
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+    if (!GEMINI_API_KEY) {
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "Server error: API key is not configured in Netlify environment variables." }),
+        };
+    }
+
+    // 2. Ensure request is POST and has a body
+    if (event.httpMethod !== 'POST' || !event.body) {
+        return {
+            statusCode: 405,
+            body: "Method Not Allowed or Missing Body",
+        };
+    }
+
+    try {
+        const clientPayload = JSON.parse(event.body);
+
+        const API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+        // 3. Forward the request to the Gemini API
+        const response = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: event.body, // Use the raw event.body (JSON string) for the request
+        });
+
+        const data = await response.json();
+
+        // 4. Return the response to the client
+        return {
+            statusCode: response.status,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        };
+
+    } catch (error) {
+        // Log the specific error that caused the 500
+        console.error('Function Proxy Error:', error.message, error.stack); 
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: `Internal Serverless Error: ${error.message}` }),
+        };
+    }
+};
+
+--- END FILE: netlify\generate.js ---
+
+--- START FILE: netlify\package.json ---
+
+{
+  "name": "netlify-functions-deps",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}
+
+--- END FILE: netlify\package.json ---
+
+---------------
+
+here is my all codes tell me what's wrong?

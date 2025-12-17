@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "echo 'Building static files and functions...' && npm install --prefix netlify" 
+    "build": "echo 'Building static files...'"  
   },
   "dependencies": {
     "dotenv": "^17.2.3",
