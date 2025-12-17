@@ -1,0 +1,14 @@
+# netlify.toml
+
+[build]
+  # Command to run before building (installs function dependencies)
+  command = "npm run build"
+  # Directory containing your static assets
+  publish = "/"
+  # Netlify automatically uses Node.js for functions
+
+[functions]
+  # Directory where Netlify functions are located
+  directory = "netlify"
+  # Node.js version to use for functions
+  node_bundler = "esbuild"

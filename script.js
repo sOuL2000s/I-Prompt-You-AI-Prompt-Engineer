@@ -1,7 +1,7 @@
 // script.js (Client-side)
 
 // Removed: GEMINI_API_KEY and direct Google API URL
-const API_ENDPOINT = "/api/generatePrompt";
+const API_ENDPOINT = "/.netlify/functions/generate";
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025"; // Used for context/logging only if needed
 
 // Get DOM elements
