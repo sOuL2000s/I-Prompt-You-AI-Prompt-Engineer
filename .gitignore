@@ -32,3 +32,4 @@ Thumbs.db          # Windows
 .idea/             # JetBrains IDEs (IntelliJ, WebStorm, etc.)
 .vscode/           # Visual Studio Code settings (if they contain user preferences)
 package-lock.json  
+serverr.js
