@@ -1,9 +1,8 @@
-// WARNING: This API key is exposed in client-side code.
-// For a production application, you MUST use a backend server to
-// securely store and access your API key.
-const GEMINI_API_KEY = "AIzaSyCzx6ReMk8ohPJcCjGwHHzu7SvFccJqAbA";
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
-const API_BASE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+// script.js (Client-side)
+
+// Removed: GEMINI_API_KEY and direct Google API URL
+const API_ENDPOINT = "/api/generatePrompt";
+const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025"; // Used for context/logging only if needed
 
 // Get DOM elements
 const userInput = document.getElementById('userInput');
@@ -92,7 +91,6 @@ function removeFileFromState(fileId) {
 
 function clearFileInputState() {
     // IMPORTANT: fileInput.value = '' is now handled in uploadFileBtn click handler
-    // to ensure change event fires reliably.
     fileNameDisplay.textContent = 'No files chosen';
     filePreview.innerHTML = '';
     filePreview.classList.remove('active'); // Hide preview container
@@ -230,8 +228,9 @@ async function generatePrompt() {
             uploadedImageParts.forEach(part => requestParts.push(part));
             requestParts.push({ text: `Carefully analyze the provided image(s) in conjunction with the user's textual request and any other uploaded text to formulate the most effective prompt.` });
         }
-        
-        const response = await fetch(API_BASE_URL, {
+
+        // --- Use local proxy endpoint ---
+        const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -266,8 +265,9 @@ async function generatePrompt() {
 
     } catch (error) {
         console.error('Error generating prompt:', error);
-        showError(`Failed to generate prompt: ${error.message}. Please try again.`);
-        outputPrompt.value = "Failed to generate prompt. Please check your input or try again later.";
+        // User-friendly error message, especially if the server fails
+        showError(`Failed to generate prompt: ${error.message}. Ensure the server is running and the API key is correct in the .env file.`);
+        outputPrompt.value = "Failed to generate prompt. Please check your input or connection.";
     } finally {
         hideLoading();
     }
@@ -276,11 +276,10 @@ async function generatePrompt() {
 // --- Event Listeners ---
 generatePromptBtn.addEventListener('click', generatePrompt);
 
-// Voice Input (Speech Recognition)
+// Voice Input (Speech Recognition) - Logic remains unchanged
 voiceInputBtn.addEventListener('click', () => {
     if (voiceRecognitionActive) {
-        // If active, stop recognition
-        if (recognition) { // Ensure recognition object exists before stopping
+        if (recognition) {
             recognition.stop();
         }
         return;
@@ -298,20 +297,20 @@ voiceInputBtn.addEventListener('click', () => {
     recognition.maxAlternatives = 1;
 
     voiceInputBtn.innerHTML = '<span class="icon">🛑</span> <span class="btn-text">Stop Listening</span>';
-    voiceInputBtn.classList.add('active-listening'); // Add class for styling
-    voiceInputBtn.disabled = false; // User can click to stop, so don't disable itself
-    uploadFileBtn.disabled = true; // Disable file upload while listening
-    generatePromptBtn.disabled = true; // Disable generate while listening
-    userInput.disabled = true; // Disable manual text input while listening
+    voiceInputBtn.classList.add('active-listening');
+    voiceInputBtn.disabled = false;
+    uploadFileBtn.disabled = true;
+    generatePromptBtn.disabled = true;
+    userInput.disabled = true;
     clearError();
-    userInput.value = ''; // Clear previous text input when starting new voice input.
+    userInput.value = '';
 
     voiceRecognitionActive = true;
     recognition.start();
 
     recognition.onresult = (event) => {
         const speechResult = event.results[0][0].transcript;
-        userInput.value = speechResult; // Replace with new speech
+        userInput.value = speechResult;
         checkGenerateButtonState();
     };
 
@@ -329,8 +328,7 @@ voiceInputBtn.addEventListener('click', () => {
     };
 
     recognition.onend = () => {
-        // Recognition ended (either by user stop, timeout, or error handled above)
-        if (voiceRecognitionActive) { // Only reset if it wasn't an error already handled
+        if (voiceRecognitionActive) {
             voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
             voiceInputBtn.classList.remove('active-listening');
             voiceInputBtn.disabled = false;
@@ -343,44 +341,42 @@ voiceInputBtn.addEventListener('click', () => {
 });
 
 
-// File Upload
+// File Upload - Logic remains unchanged
 uploadFileBtn.addEventListener('click', () => {
-    fileInput.value = ''; // Clear the input value *before* opening the dialog
-                          // This ensures the 'change' event fires even if the same file is selected again.
-    fileInput.click(); // Programmatically click the hidden file input
+    fileInput.value = '';
+    fileInput.click();
 });
 
 fileInput.addEventListener('change', async (event) => {
     const files = event.target.files;
     if (files.length === 0) {
-        // If user opened dialog but selected no files
-        clearFileInputState(); // Clears any previous files or 'No files chosen'
+        clearFileInputState();
         return;
     }
 
-    clearError(); // Clear previous errors
-    clearFileInputState(); // Clear existing files and previews when new ones are selected
+    clearError();
+    clearFileInputState();
 
-    const MAX_FILE_SIZE_MB = 5; // Per file limit
+    const MAX_FILE_SIZE_MB = 5;
     const processingPromises = [];
 
     for (const file of files) {
         if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
             showError(`File "${file.name}" is too large (>${MAX_FILE_SIZE_MB}MB). It will be skipped.`);
-            continue; // Skip this file but continue to process others
+            continue;
         }
 
         const isTextFile = file.type.startsWith('text/') ||
                            /\.(txt|md|js|py|json|html|css|xml|csv|log|sh|rb|go|java|cpp|c|h|swift|kt|php|ts|tsx|jsx|scss|less|yaml|ini|cfg|toml|rtf)$/i.test(file.name);
-        
+
         const isImageFile = file.type.startsWith('image/');
-        
+
         const isComplexDocument = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(file.name);
         const isAudioVideoFile = file.type.startsWith('audio/') || file.type.startsWith('video/');
 
         if (isAudioVideoFile || isComplexDocument) {
             showError(`Direct content extraction from "${file.name}" (${file.type}) is not fully supported client-side. Please describe its content in the text box for the AI. This file will be skipped.`);
-            continue; // Skip this file
+            continue;
         }
 
         processingPromises.push(new Promise((resolve, reject) => {
@@ -418,20 +414,17 @@ fileInput.addEventListener('change', async (event) => {
     }
 
     try {
-        await Promise.allSettled(processingPromises); // Wait for all file processing to finish
+        await Promise.allSettled(processingPromises);
     } catch (error) {
-        // This catch block would only be hit if Promise.allSettled itself throws, which it doesn't.
-        // Individual promise rejections (file read errors) are handled by reader.onerror
         console.error("One or more files encountered an error during processing:", error);
     }
-    
-    // After all files are processed/skipped, update UI
+
     renderFilePreviews();
     checkGenerateButtonState();
 });
 
 
-// Copy to Clipboard
+// Copy to Clipboard - Logic remains unchanged
 copyPromptBtn.addEventListener('click', async () => {
     try {
         await navigator.clipboard.writeText(outputPrompt.value);
@@ -450,38 +443,37 @@ copyPromptBtn.addEventListener('click', async () => {
 // --- New Prompt / Refresh Functionality ---
 function newPromptRefresh() {
     userInput.value = '';
-    clearFileInputState(); // Clears attachedFiles, fileInput, fileNameDisplay, filePreview
+    clearFileInputState();
     outputPrompt.value = '';
     clearError();
     copyPromptBtn.style.display = 'none';
-    if (voiceRecognitionActive && recognition) { // Check if recognition object exists
-        recognition.stop(); // Stop listening if active
+    if (voiceRecognitionActive && recognition) {
+        recognition.stop();
     }
-    // Reset voice input button visual state if it was active
     voiceInputBtn.innerHTML = '<span class="icon">🎤</span> <span class="btn-text">Speak Idea</span>';
     voiceInputBtn.classList.remove('active-listening');
-    voiceRecognitionActive = false; // Ensure state is false
-    userInput.disabled = false; // Re-enable user input
-    uploadFileBtn.disabled = false; // Re-enable file upload
-    checkGenerateButtonState(); // Update generate button state
+    voiceRecognitionActive = false;
+    userInput.disabled = false;
+    uploadFileBtn.disabled = false;
+    checkGenerateButtonState();
 }
 
 // Event Listeners for new header buttons
 newPromptRefreshBtn.addEventListener('click', newPromptRefresh);
 viewHistoryBtn.addEventListener('click', () => {
     renderHistoryModal();
-    historyModal.style.display = 'flex'; // Use flex to center the modal
+    historyModal.style.display = 'flex';
 });
 
 
-// --- History Management ---
+// --- History Management (Unchanged) ---
 const HISTORY_KEY = 'aiPromptHistory';
-const MAX_HISTORY_ITEMS = 15; // Limit to prevent local storage bloat
+const MAX_HISTORY_ITEMS = 15;
 
 function loadHistoryFromLocalStorage() {
     try {
         const history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-        return history.sort((a, b) => b.timestamp - a.timestamp); // Sort by newest first
+        return history.sort((a, b) => b.timestamp - a.timestamp);
     } catch (e) {
         console.error("Failed to load history from local storage:", e);
         return [];
@@ -501,16 +493,15 @@ function savePromptToHistory(rawInput, generatedPrompt, attachedFileNames) {
     let history = loadHistoryFromLocalStorage();
 
     const newEntry = {
-        id: generateUniqueId(), // Reuse unique ID generator
+        id: generateUniqueId(),
         timestamp: Date.now(),
         rawInputText: rawInput,
         generatedPrompt: generatedPrompt,
-        attachedFiles: attachedFileNames // Array of file names
+        attachedFiles: attachedFileNames
     };
 
-    history.unshift(newEntry); // Add to the beginning
+    history.unshift(newEntry);
 
-    // Trim history to MAX_HISTORY_ITEMS
     if (history.length > MAX_HISTORY_ITEMS) {
         history = history.slice(0, MAX_HISTORY_ITEMS);
     }
@@ -520,7 +511,7 @@ function savePromptToHistory(rawInput, generatedPrompt, attachedFileNames) {
 
 function renderHistoryModal() {
     const history = loadHistoryFromLocalStorage();
-    historyList.innerHTML = ''; // Clear previous entries
+    historyList.innerHTML = '';
 
     if (history.length === 0) {
         historyList.innerHTML = '<p class="no-history-message">No prompts saved yet. Generate a prompt to see it here!</p>';
@@ -576,21 +567,18 @@ function loadPromptFromHistory(id) {
     const entry = history.find(item => item.id === id);
 
     if (entry) {
-        // Clear current state
-        newPromptRefresh(); // Resets everything first
+        newPromptRefresh();
 
-        // Populate with history data
         userInput.value = entry.rawInputText;
         outputPrompt.value = entry.generatedPrompt;
 
-        // Files are not reloaded, provide a warning or clear indication
         if (entry.attachedFiles && entry.attachedFiles.length > 0) {
             showError(`Loaded text from history. Note: Original files (${entry.attachedFiles.join(', ')}) are NOT reloaded. Please re-upload if needed to use them.`);
         }
-        
-        showCopyButton(); // Ensure copy button is visible if output is loaded
-        historyModal.style.display = 'none'; // Close modal
-        checkGenerateButtonState(); // Update button states
+
+        showCopyButton();
+        historyModal.style.display = 'none';
+        checkGenerateButtonState();
     } else {
         showError("History item not found.");
     }
@@ -601,13 +589,13 @@ function deleteHistoryItem(id) {
     let history = loadHistoryFromLocalStorage();
     history = history.filter(item => item.id !== id);
     saveHistoryToLocalStorage(history);
-    renderHistoryModal(); // Refresh the modal content
+    renderHistoryModal();
 }
 
 function clearAllHistory() {
     if (!confirm('Are you sure you want to clear ALL prompt history? This cannot be undone.')) return;
     localStorage.removeItem(HISTORY_KEY);
-    renderHistoryModal(); // Refresh the modal content
+    renderHistoryModal();
 }
 
 // Event Listeners for History Modal

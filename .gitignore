@@ -1,0 +1,34 @@
+# -----------------------------------------------------------------------------
+# Node.js / Server Environment
+# -----------------------------------------------------------------------------
+# Dependency directories
+node_modules/
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Build and Temp Directories
+/dist
+/build
+/tmp
+
+# -----------------------------------------------------------------------------
+# Secrets and Environment Variables
+# -----------------------------------------------------------------------------
+# CRUCIAL: Never commit API keys or sensitive configurations!
+.env
+.env.*
+.vault
+
+# -----------------------------------------------------------------------------
+# OS/Editor Specific Files
+# -----------------------------------------------------------------------------
+.DS_Store          # macOS
+Thumbs.db          # Windows
+*.swp              # Vim swap files
+.idea/             # JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.vscode/           # Visual Studio Code settings (if they contain user preferences)
+package-lock.json  
