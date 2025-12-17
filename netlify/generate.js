@@ -1,5 +1,5 @@
-// netlify/generate.js
-const fetch = require('node-fetch'); // NOTE: Using standard fetch might work, but node-fetch is safer in older Netlify function runtimes. We will rely on built-in Node 18+ fetch if available.
+// netlify/generate.js (Updated to require node-fetch explicitly)
+const fetch = require('node-fetch'); // <-- Explicitly require the installed package
 const GEMINI_MODEL = "gemini-2.5-flash-preview-09-2025";
 
 // Main handler for the serverless function
@@ -33,7 +33,7 @@ exports.handler = async (event, context) => {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(clientPayload),
+            body: event.body, // Use the raw event.body (JSON string) for the request
         });
 
         const data = await response.json();
@@ -46,7 +46,8 @@ exports.handler = async (event, context) => {
         };
 
     } catch (error) {
-        console.error('Function Proxy Error:', error.message);
+        // Log the specific error that caused the 500
+        console.error('Function Proxy Error:', error.message, error.stack); 
         return {
             statusCode: 500,
             body: JSON.stringify({ error: `Internal Serverless Error: ${error.message}` }),
